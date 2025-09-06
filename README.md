@@ -1,6 +1,6 @@
 # My Utilities for Robotics Projects
 
-![Robotics Utilities](image.png)
+<img src="image.png" width="80%">
 
 A collection of utility functions and tools for robotics projects
 
