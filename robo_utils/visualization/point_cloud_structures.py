@@ -4,31 +4,43 @@ import matplotlib.pyplot as plt
 
 def make_line(start_point, end_point, density, color):
     """
-    Generate a simple line between two 3D points.
+    Generate simple lines between corresponding 3D points.
     
     Args:
-        start_point: Starting 3D coordinates of the line
-        end_point: Ending 3D coordinates of the line
-        density: Number of points along the line
-        color: RGB color values for the line
+        start_point: Starting 3D coordinates of the lines, shape (n,3) or (3,)
+        end_point: Ending 3D coordinates of the lines, shape (n,3) or (3,) 
+        density: Number of points along each line
+        color: RGB color values for the lines
         
     Raises:
         ValueError: If start and end points are the same
+        ValueError: If start_point and end_point shapes don't match
     """
-    # Convert points to numpy arrays
-    start = np.array(start_point)
-    end = np.array(end_point)
+    # Convert points to numpy arrays and ensure 2D
+    start = np.atleast_2d(np.array(start_point))
+    end = np.atleast_2d(np.array(end_point))
     
-    # Calculate direction vector
-    direction = end - start
-    if np.allclose(direction, 0):
+    if start.shape != end.shape:
+        raise ValueError("Start and end points must have same shape")
+        
+    # Calculate direction vectors
+    directions = end - start
+    if np.any(np.all(directions == 0, axis=1)):
         raise ValueError("Start and end points cannot be the same")
     
-    # Generate evenly spaced points along the line
+    # Generate evenly spaced points along each line
     t = np.linspace(0, 1, density)
-    points = np.outer(1-t, start) + np.outer(t, end)
+    t = t.reshape(-1, 1)
+    
+    # Expand dimensions for broadcasting
+    start = start[:, np.newaxis, :]  # Shape: (n, 1, 3)
+    end = end[:, np.newaxis, :]      # Shape: (n, 1, 3)
+    
+    # Generate points for all lines
+    points = (1-t) * start + t * end  # Shape: (n, density, 3)
+    points = points.reshape(-1, 3)    # Flatten to (n*density, 3)
 
-    # Colors
+    # Colors for all points
     colors = np.tile(np.array(color), (points.shape[0], 1))
 
     return points, colors

@@ -86,6 +86,10 @@ def plot_pcd(pcd, colors=None, frame=False):
             colors_new = colors_new / 255.0
         
         pts_vis.colors = o3d.utility.Vector3dVector(colors_new)
+    else:
+        # Set default black color if no colors provided
+        black_colors = np.zeros((pcd_new.shape[0], 3))
+        pts_vis.colors = o3d.utility.Vector3dVector(black_colors)
 
     geometries = [pts_vis]
 
