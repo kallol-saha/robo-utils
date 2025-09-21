@@ -9,3 +9,4 @@ A collection of utility functions and tools for robotics projects
 2. PyTorch
 3. NumPy == 1.26.4
 4. Matplotlib
+5. SciPy

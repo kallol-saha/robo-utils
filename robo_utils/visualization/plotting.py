@@ -1,9 +1,25 @@
 import torch
 import open3d as o3d
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
 from .point_cloud_structures import make_gripper_visualization, get_cube_point_cloud
+
+COLORS = {
+    "blue": np.array([78, 121, 167]) / 255.0,  # blue
+    "green": np.array([89, 161, 79]) / 255.0,  # green
+    "brown": np.array([156, 117, 95]) / 255.0,  # brown
+    "orange": np.array([242, 142, 43]) / 255.0,  # orange
+    "yellow": np.array([237, 201, 72]) / 255.0,  # yellow
+    "gray": np.array([186, 176, 172]) / 255.0,  # gray
+    "red": np.array([255, 87, 89]) / 255.0,  # red
+    "purple": np.array([176, 122, 161]) / 255.0,  # purple
+    "cyan": np.array([118, 183, 178]) / 255.0,  # cyan
+    "pink": np.array([255, 157, 167]) / 255.0,
+    "prediction": np.array([153, 255, 51]) / 255.0,
+    "action": np.array([0, 128, 255]) / 255.0,
+}
 
 def reshape_to_points(data):
     """
@@ -64,12 +80,23 @@ def transform_pcd(pcd: np.ndarray, transform: np.ndarray) -> np.ndarray:
     pcd_new = np.matmul(transform, pcd.T)[:-1, :].T
     return pcd_new
 
-def plot_pcd(pcd, colors=None, frame=False):
+def plot_pcd(pcd, colors=None, seg=None, frame=False):
+    """
+    Args:
+        pcd: (N, 3)
+        colors: (N, 3)
+        seg: (N, 1) or (N,)
+        frame: bool
+    """    
 
     if type(pcd) == torch.Tensor:
         pcd = pcd.cpu().detach().numpy()
     if colors is not None and type(colors) == torch.Tensor:
         colors = colors.cpu().detach().numpy()
+    if seg is not None:
+        if type(seg) == torch.Tensor:
+            seg = seg.cpu().detach().numpy()
+        seg = seg.flatten()
 
     # Reshape point cloud to (-1, 3) and create writable copy
     pcd_new = reshape_to_points(pcd)
@@ -80,12 +107,19 @@ def plot_pcd(pcd, colors=None, frame=False):
     if colors is not None:
         # Apply the same reshaping to colors as we did to pcd
         colors_new = reshape_to_points(colors)
-        
         # Ensure colors are in the right range [0, 1]
         if colors_new.max() > 1.0:
             colors_new = colors_new / 255.0
-        
         pts_vis.colors = o3d.utility.Vector3dVector(colors_new)
+
+    elif seg is not None:
+        seg_ids = np.unique(seg)
+        n = len(seg_ids)
+        cmap = plt.get_cmap("tab10")
+        id_to_color = {uid: cmap(i / n)[:3] for i, uid in enumerate(seg_ids)}
+        colors = np.array([id_to_color[uid] for uid in seg])
+        pts_vis.colors = o3d.utility.Vector3dVector(colors)
+
     else:
         # Set default black color if no colors provided
         black_colors = np.zeros((pcd_new.shape[0], 3))
@@ -100,6 +134,25 @@ def plot_pcd(pcd, colors=None, frame=False):
         geometries.append(frame)
 
     o3d.visualization.draw_geometries(geometries)
+
+def plot_pcd_with_highlighted_segment(pcd, seg, segment_id):
+    """
+    Plot the point cloud with the highlighted segment
+    Args:
+        pcd: (N, 3)
+        seg: (N, 1) or (N,)
+        segment_id: int
+    """
+    if seg is not None:
+        if type(seg) == torch.Tensor:
+            seg = seg.cpu().detach().numpy()
+        seg = seg.flatten()
+
+    binary_seg = np.where(seg == segment_id, 1, 0)
+    seg = torch.from_numpy(binary_seg).unsqueeze(-1)
+
+    plot_pcd(pcd, seg=seg)
+
 
 def plot_voxel_grid_with_action(voxel_grid: torch.Tensor, 
                     action_voxels: torch.Tensor,
