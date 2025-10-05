@@ -62,24 +62,6 @@ def reshape_to_points(data):
     
     return data_new
 
-def transform_pcd(pcd: np.ndarray, transform: np.ndarray) -> np.ndarray:
-    """Transforms the given point cloud by the given transformation matrix.
-
-    Args:
-    -----
-        pcd (np.ndarray): Nx3 point cloud
-        transform (np.ndarray): 4x4 transformation matrix
-
-    Returns:
-    --------
-            pcd_new (np.ndarray): Nx3 transformed point cloud
-    """
-
-    if pcd.shape[1] != 4:
-        pcd = np.concatenate((pcd, np.ones((pcd.shape[0], 1))), axis=1)
-    pcd_new = np.matmul(transform, pcd.T)[:-1, :].T
-    return pcd_new
-
 def plot_pcd(pcd, colors=None, seg=None, frame=False):
     """
     Args:
