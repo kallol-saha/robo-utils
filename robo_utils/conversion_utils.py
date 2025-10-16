@@ -25,50 +25,88 @@ def matrix_to_quaternion(matrix, format='xyzw'):
     else:
         raise ValueError(f"Invalid matrix format: {format}")
 
-def pose_to_transformation(pose, format='xyzw'):
+def pose_to_transformation(pose: np.ndarray, format='xyzw'):
     """
     Convert a pose to a transformation matrix.
-    pose is a numpy array of shape (7,)
-    Returns a numpy array of shape (4, 4)
+    pose is a numpy array of shape (7,) or (N, 7)
+    Returns a numpy array of shape (4, 4) or (N, 4, 4)
     """
-    transformation_matrix = np.eye(4)
-    transformation_matrix[:3, :3] = quaternion_to_matrix(pose[3:], format=format)
-    transformation_matrix[:3, 3] = pose[:3]
+
+    # Make dimensions consistent:
+    if not isinstance(pose, np.ndarray):
+        raise ValueError(f"Pose must be a numpy array")
+
+    reshape_pose = False
+    if len(pose.shape) == 1:
+        reshape_pose = True
+        pose = pose[np.newaxis, :]
+    transformation_matrix = np.eye(4, 4)[np.newaxis, :, :].repeat(pose.shape[0], axis=0)
+
+    # Convert to transformation matrix:
+    transformation_matrix[..., :3, :3] = quaternion_to_matrix(pose[..., 3:], format=format)
+    transformation_matrix[..., :3, 3] = pose[..., :3]
+
+    if reshape_pose:
+        transformation_matrix = transformation_matrix[0, :, :]
     return transformation_matrix
 
 def transformation_to_pose(transformation_matrix, format='xyzw'):
     """
     Convert a transformation matrix to a pose.
-    transformation_matrix is a numpy array of shape (4, 4)
-    Returns a numpy array of shape (7,)
+    Accepts numpy array of shape (4, 4) or (N, 4, 4).
+    Returns numpy array of shape (7,) or (N, 7) correspondingly.
     """
-    pose = np.zeros(7)
-    pose[:3] = transformation_matrix[:3, 3]
-    pose[3:] = matrix_to_quaternion(transformation_matrix[:3, :3], format=format)
-    return pose
+    if not isinstance(transformation_matrix, np.ndarray):
+        raise ValueError("transformation_matrix must be a numpy array")
+
+    reshape_out = False
+    if transformation_matrix.ndim == 2:
+        reshape_out = True
+        transformation_matrix = transformation_matrix[np.newaxis, ...]  # (1,4,4)
+
+    # Positions
+    pos = transformation_matrix[:, :3, 3]  # (N,3)
+    # Rotations to quaternions (vectorized)
+    quat = matrix_to_quaternion(transformation_matrix[:, :3, :3], format=format)  # (N,4)
+
+    poses = np.concatenate([pos, quat], axis=-1)  # (N,7)
+    if reshape_out:
+        poses = poses[0]
+    return poses
 
 def invert_transformation(transformation_matrix):
     """Inverts the given transformation matrix.
     
     Args:
-        transformation_matrix: 4x4 transformation matrix (numpy array or torch tensor)
+        transformation_matrix: (..., 4, 4) transformation matrix (numpy ndarray only)
         
     Returns:
-        inverse_transformation_matrix: 4x4 inverted transformation matrix (same type as input)
+        inverse_transformation_matrix: (..., 4, 4) inverted transformation matrix (numpy ndarray)
     """
-    if isinstance(transformation_matrix, torch.Tensor):
-        inverse_rotation_matrix = torch.linalg.inv(transformation_matrix[:3, :3])
-        inverse_translation = -torch.matmul(inverse_rotation_matrix, transformation_matrix[:3, 3])
-        inverse_transformation_matrix = torch.eye(4, device=transformation_matrix.device)
+    if not isinstance(transformation_matrix, np.ndarray):
+        raise ValueError("transformation_matrix must be a numpy array")
+
+    if transformation_matrix.ndim == 2:
+        tm = transformation_matrix[np.newaxis, ...]
+        squeeze_out = True
     else:
-        inverse_rotation_matrix = np.linalg.inv(transformation_matrix[:3, :3])
-        inverse_translation = -np.matmul(inverse_rotation_matrix, transformation_matrix[:3, 3])
-        inverse_transformation_matrix = np.eye(4)
+        tm = transformation_matrix
+        squeeze_out = False
 
-    inverse_transformation_matrix[:3, :3] = inverse_rotation_matrix
-    inverse_transformation_matrix[:3, 3] = inverse_translation
+    R = tm[..., :3, :3]
+    t = tm[..., :3, 3]
+    R_inv = np.linalg.inv(R)
+    t_inv = -np.matmul(R_inv, t[..., None])[..., 0]
 
-    return inverse_transformation_matrix
+    batch_shape = tm.shape[:-2]
+    I = np.eye(4, dtype=tm.dtype).reshape((1, 4, 4)).repeat(np.prod(batch_shape, dtype=int) if len(batch_shape) > 0 else 1, axis=0)
+    I = I.reshape(*batch_shape, 4, 4)
+    I[..., :3, :3] = R_inv
+    I[..., :3, 3] = t_inv
+
+    if squeeze_out:
+        return I[0]
+    return I
 
 def invert_pose(pose: np.ndarray, format='xyzw') -> np.ndarray:
     """Inverts the given pose.
