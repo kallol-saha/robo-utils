@@ -135,7 +135,6 @@ def plot_pcd_with_highlighted_segment(pcd, seg, segment_id):
 
     plot_pcd(pcd, seg=seg)
 
-
 def plot_voxel_grid_with_action(voxel_grid: torch.Tensor, 
                     action_voxels: torch.Tensor,
                     action_colors: torch.Tensor):
