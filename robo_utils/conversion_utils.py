@@ -1,6 +1,7 @@
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 import torch
+import open3d as o3d
 
 def quaternion_to_matrix(quaternion, format='xyzw'):
     """
@@ -147,6 +148,33 @@ def transform_pcd(pcd, transform):
             pcd = np.concatenate((pcd, np.ones((pcd.shape[0], 1))), axis=1)
         pcd_new = np.matmul(transform, pcd.T)[:-1, :].T
     return pcd_new
+
+def furthest_point_sample(pcd: np.ndarray | torch.Tensor, num_points: int = 1024):
+    """
+    """
+    if isinstance(pcd, torch.Tensor):
+        original_type = "torch"
+        tensor_device = pcd.device
+        pcd = pcd.detach().cpu().numpy()
+    elif not isinstance(pcd, np.ndarray):
+        raise ValueError("pcd must be a numpy array or torch tensor")
+    else:
+        original_type = "numpy"
+        tensor_device = None
+
+    if pcd.shape[1] != 3 and len(pcd.shape) != 2:
+        raise ValueError("pcd must be a numpy array or torch tensor of shape (N, 3)")
+
+    pcd_o3d = o3d.geometry.PointCloud()
+    pcd_o3d.points = o3d.utility.Vector3dVector(pcd)
+
+    downsampled_pcd = pcd_o3d.farthest_point_down_sample(num_samples=num_points)
+    downsampled_pcd = np.asarray(downsampled_pcd.points)
+
+    if original_type == "torch":
+        return torch.from_numpy(downsampled_pcd).to(tensor_device)
+    else:
+        return downsampled_pcd
 
 def move_pose_along_local_z(pose: np.ndarray | torch.Tensor, distance: float, format: str = 'wxyz'):
     """Translate pose(s) along their local +Z axis by a given distance.

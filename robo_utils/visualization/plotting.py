@@ -62,13 +62,15 @@ def reshape_to_points(data):
     
     return data_new
 
-def plot_pcd(pcd, colors=None, seg=None, frame=False):
+def plot_pcd(pcd, colors=None, seg=None, base_frame=False, extra_frames=None, frame_size=0.2):
     """
     Args:
         pcd: (N, 3)
         colors: (N, 3)
         seg: (N, 1) or (N,)
         frame: bool
+        extra_frames: list of (4, 4) transformation matrices
+        frame_size: size of the frame
     """    
 
     if type(pcd) == torch.Tensor:
@@ -109,11 +111,19 @@ def plot_pcd(pcd, colors=None, seg=None, frame=False):
 
     geometries = [pts_vis]
 
-    if frame:
+    if base_frame:
         frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
-            size=0.2, origin=[0, 0, 0]
+            size=frame_size, origin=[0, 0, 0]
         )
         geometries.append(frame)
+
+    if extra_frames is not None:
+        for frame_transform in extra_frames:
+            frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=frame_size, origin=[0, 0, 0]
+            )
+            frame.transform(frame_transform)
+            geometries.append(frame)
 
     o3d.visualization.draw_geometries(geometries)
 
