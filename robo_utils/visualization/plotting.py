@@ -66,7 +66,7 @@ def plot_pcd(pcd, colors=None, seg=None, base_frame=False, extra_frames=None, fr
     """
     Args:
         pcd: (N, 3)
-        colors: (N, 3)
+        colors: (N, 3) => Preferred to be in the range [0, 1]
         seg: (N, 1) or (N,)
         frame: bool
         extra_frames: list of (4, 4) transformation matrices
