@@ -14,7 +14,6 @@ def quaternion_to_matrix(quaternion, format='xyzw'):
     else:
         raise ValueError(f"Invalid quaternion format: {format}")
     
-
 def matrix_to_quaternion(matrix, format='xyzw'):
     """
     Convert a rotation matrix to a quaternion.
@@ -25,6 +24,33 @@ def matrix_to_quaternion(matrix, format='xyzw'):
         return R.from_matrix(matrix).as_quat(scalar_first=False)
     else:
         raise ValueError(f"Invalid matrix format: {format}")
+
+def angle_between_vectors(v1, v2, eps=1e-12):
+    """
+    Computes the angle between vectors v1 and v2.
+    v1, v2: shape (..., 3)
+    Returns: angle in radians, shape (...)
+    """
+
+    if not isinstance(v1, np.ndarray) or not isinstance(v2, np.ndarray):
+        raise ValueError(f"v1 and v2 must be a numpy arrays")
+
+    # Reshape to (..., 3) if needed:
+    if v1.ndim == 1:
+        v1 = v1[np.newaxis, :]
+    if v2.ndim == 1:
+        v2 = v2[np.newaxis, :]
+
+    assert v1.ndim == 2 and v2.ndim == 2, "v1 and v2 must have shape (..., 3)"
+    assert v1.shape[-1] == 3 and v2.shape[-1] == 3, "v1 and v2 must have shape (..., 3)"
+
+    v1 = v1 / (np.linalg.norm(v1, axis=-1, keepdims=True) + eps)
+    v2 = v2 / (np.linalg.norm(v2, axis=-1, keepdims=True) + eps)
+
+    cos_theta = np.sum(v1 * v2, axis=-1)
+    cos_theta = np.clip(cos_theta, -1.0, 1.0)
+
+    return np.arccos(cos_theta)
 
 def pose_to_transformation(pose: np.ndarray, format='xyzw'):
     """
