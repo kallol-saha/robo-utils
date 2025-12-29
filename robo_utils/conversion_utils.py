@@ -244,6 +244,90 @@ def move_pose_along_local_z(pose: np.ndarray | torch.Tensor, distance: float, fo
     else:
         raise ValueError("pose must be a numpy array or torch tensor")
 
+def move_pose_along_local_x(pose: np.ndarray | torch.Tensor, distance: float, format: str = 'wxyz'):
+    """Translate pose(s) along their local +X axis by a given distance.
+
+    Args:
+        pose: Pose as (7,) or (N,7), numpy ndarray or torch tensor, ordered
+              (x, y, z, qw, qx, qy, qz) if format=='wxyz', or (x, y, z, qx, qy, qz, qw) if 'xyzw'.
+        distance: Scalar translation to apply along local X (meters).
+        format: Quaternion convention, 'wxyz' or 'xyzw'.
+
+    Returns:
+        Pose(s) with updated position, same shape/type/device as input.
+    """
+
+    if isinstance(pose, torch.Tensor):
+        pose = pose.detach().cpu().numpy()
+
+    if isinstance(pose, np.ndarray):
+        single = False
+        p = pose
+        if p.ndim == 1:
+            p = p[np.newaxis, :]
+            single = True
+        pos = p[:, :3]
+        if format == 'wxyz':
+            quat = p[:, 3:7]
+        elif format == 'xyzw':
+            quat = p[:, 3:7][:, [3, 0, 1, 2]]  # to wxyz
+        else:
+            raise ValueError(f"Invalid quaternion format: {format}")
+
+        R = quaternion_to_matrix(quat, format='wxyz')  # (N,3,3)
+        x_axis = R[:, :, 0]  # (N,3)
+        pos_new = pos + (distance * x_axis)
+        out = p.copy()
+        out[:, :3] = pos_new
+        if single:
+            out = out[0]
+        return out
+
+    else:
+        raise ValueError("pose must be a numpy array or torch tensor")
+
+def move_pose_along_local_y(pose: np.ndarray | torch.Tensor, distance: float, format: str = 'wxyz'):
+    """Translate pose(s) along their local +Y axis by a given distance.
+
+    Args:
+        pose: Pose as (7,) or (N,7), numpy ndarray or torch tensor, ordered
+              (x, y, z, qw, qx, qy, qz) if format=='wxyz', or (x, y, z, qx, qy, qz, qw) if 'xyzw'.
+        distance: Scalar translation to apply along local Y (meters).
+        format: Quaternion convention, 'wxyz' or 'xyzw'.
+
+    Returns:
+        Pose(s) with updated position, same shape/type/device as input.
+    """
+
+    if isinstance(pose, torch.Tensor):
+        pose = pose.detach().cpu().numpy()
+
+    if isinstance(pose, np.ndarray):
+        single = False
+        p = pose
+        if p.ndim == 1:
+            p = p[np.newaxis, :]
+            single = True
+        pos = p[:, :3]
+        if format == 'wxyz':
+            quat = p[:, 3:7]
+        elif format == 'xyzw':
+            quat = p[:, 3:7][:, [3, 0, 1, 2]]  # to wxyz
+        else:
+            raise ValueError(f"Invalid quaternion format: {format}")
+
+        R = quaternion_to_matrix(quat, format='wxyz')  # (N,3,3)
+        y_axis = R[:, :, 1]  # (N,3)
+        pos_new = pos + (distance * y_axis)
+        out = p.copy()
+        out[:, :3] = pos_new
+        if single:
+            out = out[0]
+        return out
+
+    else:
+        raise ValueError("pose must be a numpy array or torch tensor")
+
 def move_transformation_along_local_z(transformation_matrix: np.ndarray, distance: float):
     """Transforms the given transformation matrix along the local +Z axis by a given distance.
 
