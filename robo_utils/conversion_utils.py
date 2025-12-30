@@ -29,10 +29,15 @@ def matrix_to_quaternion(matrix, format='xyzw'):
     """
     Convert a rotation matrix to a quaternion.
     """
+    # as_quat() returns xyzw format by default (scalar last)
+    quat = R.from_matrix(matrix).as_quat()
+    
     if format == 'wxyz':
-        return R.from_matrix(matrix).as_quat(scalar_first=True)
+        # Reorder from [x, y, z, w] to [w, x, y, z]
+        return quat[..., [3, 0, 1, 2]]
     elif format == 'xyzw':
-        return R.from_matrix(matrix).as_quat(scalar_first=False)
+        # Already in xyzw format, return as is
+        return quat
     else:
         raise ValueError(f"Invalid matrix format: {format}")
 
