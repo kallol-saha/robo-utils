@@ -1,10 +1,21 @@
-import torch
+from typing import Union
+# torch is not always required to run stuff from robo_utils
+try:
+    import torch
+except ImportError:
+    torch = None
 import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
 from .point_cloud_structures import make_gripper_visualization, get_cube_point_cloud
+
+# Type hint that works whether torch is available or not
+if torch is not None:
+    TensorType = Union[np.ndarray, torch.Tensor]
+else:
+    TensorType = Union[np.ndarray, "torch.Tensor"]  # String literal for when torch is not available
 
 COLORS = {
     "blue": np.array([78, 121, 167]) / 255.0,  # blue
@@ -73,12 +84,12 @@ def plot_pcd(pcd, colors=None, seg=None, base_frame=False, extra_frames=None, fr
         frame_size: size of the frame
     """    
 
-    if type(pcd) == torch.Tensor:
+    if torch is not None and type(pcd) == torch.Tensor:
         pcd = pcd.cpu().detach().numpy()
-    if colors is not None and type(colors) == torch.Tensor:
+    if colors is not None and torch is not None and type(colors) == torch.Tensor:
         colors = colors.cpu().detach().numpy()
     if seg is not None:
-        if type(seg) == torch.Tensor:
+        if torch is not None and type(seg) == torch.Tensor:
             seg = seg.cpu().detach().numpy()
         seg = seg.flatten()
 
@@ -136,18 +147,20 @@ def plot_pcd_with_highlighted_segment(pcd, seg, segment_id):
         segment_id: int
     """
     if seg is not None:
-        if type(seg) == torch.Tensor:
+        if torch is not None and type(seg) == torch.Tensor:
             seg = seg.cpu().detach().numpy()
         seg = seg.flatten()
 
     binary_seg = np.where(seg == segment_id, 1, 0)
+    if torch is None:
+        raise ImportError("torch is not available. This function requires torch.")
     seg = torch.from_numpy(binary_seg).unsqueeze(-1)
 
     plot_pcd(pcd, seg=seg)
 
-def plot_voxel_grid_with_action(voxel_grid: torch.Tensor, 
-                    action_voxels: torch.Tensor,
-                    action_colors: torch.Tensor):
+def plot_voxel_grid_with_action(voxel_grid: TensorType, 
+                    action_voxels: TensorType,
+                    action_colors: TensorType):
     """
     Plot the voxel grid with the action translation in the voxel grid
     Args:
@@ -155,6 +168,8 @@ def plot_voxel_grid_with_action(voxel_grid: torch.Tensor,
         action_voxels: (N, 3)
         action_colors: (N, 3)
     """
+    if torch is None:
+        raise ImportError("torch is not available. This function requires torch.")
     
     vis_grid = voxel_grid.permute(1, 2, 3, 0)
 
@@ -303,11 +318,11 @@ def voxel_points_and_features_from_voxel_grid(voxel_grid, action_voxels, action_
     """
 
     # Convert inputs to numpy arrays if they are torch tensors
-    if torch.is_tensor(voxel_grid):
+    if torch is not None and torch.is_tensor(voxel_grid):
         voxel_grid = voxel_grid.detach().cpu().numpy()
-    if torch.is_tensor(action_voxels):
+    if torch is not None and torch.is_tensor(action_voxels):
         action_voxels = action_voxels.detach().cpu().numpy()
-    if torch.is_tensor(action_colors):
+    if torch is not None and torch.is_tensor(action_colors):
         action_colors = action_colors.detach().cpu().numpy()
         
     # Convert voxel grid to (X, Y, Z, features) format

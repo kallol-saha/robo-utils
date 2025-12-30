@@ -1,7 +1,18 @@
 from scipy.spatial.transform import Rotation as R
 import numpy as np
-import torch
+from typing import Union
+# torch is not always required to run stuff from robo_utils
+try:
+    import torch
+except ImportError:
+    torch = None
 import open3d as o3d
+
+# Type hint that works whether torch is available or not
+if torch is not None:
+    TensorType = Union[np.ndarray, torch.Tensor]
+else:
+    TensorType = Union[np.ndarray, "torch.Tensor"]  # String literal for when torch is not available
 
 def quaternion_to_matrix(quaternion, format='xyzw'):
     """
@@ -157,14 +168,17 @@ def transform_pcd(pcd, transform):
     """
 
     # Convert both to numpy arrays if types don't match
-    if isinstance(pcd, torch.Tensor) != isinstance(transform, torch.Tensor):
+    is_pcd_torch = torch is not None and isinstance(pcd, torch.Tensor)
+    is_transform_torch = torch is not None and isinstance(transform, torch.Tensor)
+    
+    if is_pcd_torch != is_transform_torch:
         print("WARNING: Point cloud and transformation matrix must be same type (both numpy arrays or both torch tensors)")
-        if isinstance(pcd, torch.Tensor):
+        if is_pcd_torch:
             pcd = pcd.cpu().numpy()
-        if isinstance(transform, torch.Tensor):
+        if is_transform_torch:
             transform = transform.cpu().numpy()
     
-    if isinstance(pcd, torch.Tensor):
+    if is_pcd_torch:
         if pcd.shape[1] != 4:
             ones = torch.ones((pcd.shape[0], 1), device=pcd.device)
             pcd = torch.cat((pcd, ones), dim=1)
@@ -175,10 +189,10 @@ def transform_pcd(pcd, transform):
         pcd_new = np.matmul(transform, pcd.T)[:-1, :].T
     return pcd_new
 
-def furthest_point_sample(pcd: np.ndarray | torch.Tensor, num_points: int = 1024):
+def furthest_point_sample(pcd: TensorType, num_points: int = 1024):
     """
     """
-    if isinstance(pcd, torch.Tensor):
+    if torch is not None and isinstance(pcd, torch.Tensor):
         original_type = "torch"
         tensor_device = pcd.device
         pcd = pcd.detach().cpu().numpy()
@@ -198,11 +212,13 @@ def furthest_point_sample(pcd: np.ndarray | torch.Tensor, num_points: int = 1024
     downsampled_pcd = np.asarray(downsampled_pcd.points)
 
     if original_type == "torch":
+        if torch is None:
+            raise ImportError("torch is not available. Cannot return torch tensor.")
         return torch.from_numpy(downsampled_pcd).to(tensor_device)
     else:
         return downsampled_pcd
 
-def move_pose_along_local_z(pose: np.ndarray | torch.Tensor, distance: float, format: str = 'wxyz'):
+def move_pose_along_local_z(pose: TensorType, distance: float, format: str = 'wxyz'):
     """Translate pose(s) along their local +Z axis by a given distance.
 
     Args:
@@ -215,7 +231,7 @@ def move_pose_along_local_z(pose: np.ndarray | torch.Tensor, distance: float, fo
         Pose(s) with updated position, same shape/type/device as input.
     """
 
-    if isinstance(pose, torch.Tensor):
+    if torch is not None and isinstance(pose, torch.Tensor):
         pose = pose.detach().cpu().numpy()
 
     if isinstance(pose, np.ndarray):
@@ -244,7 +260,7 @@ def move_pose_along_local_z(pose: np.ndarray | torch.Tensor, distance: float, fo
     else:
         raise ValueError("pose must be a numpy array or torch tensor")
 
-def move_pose_along_local_x(pose: np.ndarray | torch.Tensor, distance: float, format: str = 'wxyz'):
+def move_pose_along_local_x(pose: TensorType, distance: float, format: str = 'wxyz'):
     """Translate pose(s) along their local +X axis by a given distance.
 
     Args:
@@ -257,7 +273,7 @@ def move_pose_along_local_x(pose: np.ndarray | torch.Tensor, distance: float, fo
         Pose(s) with updated position, same shape/type/device as input.
     """
 
-    if isinstance(pose, torch.Tensor):
+    if torch is not None and isinstance(pose, torch.Tensor):
         pose = pose.detach().cpu().numpy()
 
     if isinstance(pose, np.ndarray):
@@ -286,7 +302,7 @@ def move_pose_along_local_x(pose: np.ndarray | torch.Tensor, distance: float, fo
     else:
         raise ValueError("pose must be a numpy array or torch tensor")
 
-def move_pose_along_local_y(pose: np.ndarray | torch.Tensor, distance: float, format: str = 'wxyz'):
+def move_pose_along_local_y(pose: TensorType, distance: float, format: str = 'wxyz'):
     """Translate pose(s) along their local +Y axis by a given distance.
 
     Args:
@@ -299,7 +315,7 @@ def move_pose_along_local_y(pose: np.ndarray | torch.Tensor, distance: float, fo
         Pose(s) with updated position, same shape/type/device as input.
     """
 
-    if isinstance(pose, torch.Tensor):
+    if torch is not None and isinstance(pose, torch.Tensor):
         pose = pose.detach().cpu().numpy()
 
     if isinstance(pose, np.ndarray):

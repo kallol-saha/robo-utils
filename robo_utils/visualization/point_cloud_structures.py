@@ -1,6 +1,17 @@
-import torch
+from typing import Union
+# torch is not always required to run stuff from robo_utils
+try:
+    import torch
+except ImportError:
+    torch = None
 import numpy as np
 import matplotlib.pyplot as plt
+
+# Type hint that works whether torch is available or not
+if torch is not None:
+    TensorType = Union[np.ndarray, torch.Tensor]
+else:
+    TensorType = Union[np.ndarray, "torch.Tensor"]  # String literal for when torch is not available
 
 def make_line(start_point, end_point, density, color):
     """
@@ -60,9 +71,9 @@ def make_coordinate_frame(rotation, translation, length=1.0, density=50):
         features: Nx3 array of RGB colors
     """
     # Convert to numpy if needed
-    if torch.is_tensor(rotation):
+    if torch is not None and torch.is_tensor(rotation):
         rotation = rotation.detach().cpu().numpy()
-    if torch.is_tensor(translation):
+    if torch is not None and torch.is_tensor(translation):
         translation = translation.detach().cpu().numpy()
     
     # Ensure rotation is 3x3 and translation is 3D
@@ -99,9 +110,9 @@ def make_gripper_visualization(rotation, translation, length=1.0, density=50, co
         features: Nx3 array of RGB colors
     """
     # Convert to numpy if needed
-    if torch.is_tensor(rotation):
+    if torch is not None and torch.is_tensor(rotation):
         rotation = rotation.detach().cpu().numpy()
-    if torch.is_tensor(translation):
+    if torch is not None and torch.is_tensor(translation):
         translation = translation.detach().cpu().numpy()
 
     base_pts, base_col = make_line(np.array([0., -length, -length]),
@@ -219,9 +230,9 @@ def make_cylinder_line(start_point, end_point, radius=0.01, axial_density=50, ra
         colors: (axial_density * radial_density, 3) array of RGB colors
     """
     # Convert inputs to numpy arrays
-    if torch.is_tensor(start_point):
+    if torch is not None and torch.is_tensor(start_point):
         start_point = start_point.detach().cpu().numpy()
-    if torch.is_tensor(end_point):
+    if torch is not None and torch.is_tensor(end_point):
         end_point = end_point.detach().cpu().numpy()
 
     start = np.array(start_point, dtype=np.float32).reshape(3)
