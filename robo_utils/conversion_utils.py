@@ -20,8 +20,10 @@ def quaternion_to_matrix(quaternion, format='xyzw'):
     """
     quaternion = np.asarray(quaternion)
     if format == 'wxyz':
+        # Reorder from [w, x, y, z] to [x, y, z, w]
         return R.from_quat(quaternion[..., [1, 2, 3, 0]]).as_matrix()
     elif format == 'xyzw':
+        # Already in xyzw format, use as is
         return R.from_quat(quaternion).as_matrix()
     else:
         raise ValueError(f"Invalid quaternion format: {format}")
@@ -34,8 +36,8 @@ def matrix_to_quaternion(matrix, format='xyzw'):
     quat = R.from_matrix(matrix).as_quat()
     
     if format == 'wxyz':
-        # Reorder from [w, x, y, z] to [x, y, z, w]
-        return quat[..., [1, 2, 3, 0]]
+        # Reorder from [x, y, z, w] to [w, x, y, z]
+        return quat[..., [3, 0, 1, 2]]
     elif format == 'xyzw':
         # Already in xyzw format, return as is
         return quat
