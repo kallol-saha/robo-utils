@@ -18,10 +18,11 @@ def quaternion_to_matrix(quaternion, format='xyzw'):
     """
     Convert a quaternion to a rotation matrix.
     """
+    quaternion = np.asarray(quaternion)
     if format == 'wxyz':
-        return R.from_quat(quaternion, scalar_first=True).as_matrix()
+        return R.from_quat(quaternion[..., [1, 2, 3, 0]]).as_matrix()
     elif format == 'xyzw':
-        return R.from_quat(quaternion, scalar_first=False).as_matrix()
+        return R.from_quat(quaternion).as_matrix()
     else:
         raise ValueError(f"Invalid quaternion format: {format}")
     
@@ -33,8 +34,8 @@ def matrix_to_quaternion(matrix, format='xyzw'):
     quat = R.from_matrix(matrix).as_quat()
     
     if format == 'wxyz':
-        # Reorder from [x, y, z, w] to [w, x, y, z]
-        return quat[..., [3, 0, 1, 2]]
+        # Reorder from [w, x, y, z] to [x, y, z, w]
+        return quat[..., [1, 2, 3, 0]]
     elif format == 'xyzw':
         # Already in xyzw format, return as is
         return quat
@@ -342,6 +343,78 @@ def move_pose_along_local_y(pose: TensorType, distance: float, format: str = 'wx
         pos_new = pos + (distance * y_axis)
         out = p.copy()
         out[:, :3] = pos_new
+        if single:
+            out = out[0]
+        return out
+
+    else:
+        raise ValueError("pose must be a numpy array or torch tensor")
+
+def rotate_pose_around_local_x(pose: TensorType, angle: float, format: str = 'wxyz'):
+    """Rotate pose(s) around their local +X axis by a given angle.
+
+    Args:
+        pose: Pose as (7,) or (N,7), numpy ndarray or torch tensor, ordered
+              (x, y, z, qw, qx, qy, qz) if format=='wxyz', or (x, y, z, qx, qy, qz, qw) if 'xyzw'.
+        angle: Rotation angle in radians (positive = counterclockwise when looking along +X).
+        format: Quaternion convention, 'wxyz' or 'xyzw'.
+
+    Returns:
+        Pose(s) with updated orientation, same shape/type/device as input.
+    """
+
+    if torch is not None and isinstance(pose, torch.Tensor):
+        pose = pose.detach().cpu().numpy()
+
+    if isinstance(pose, np.ndarray):
+        single = False
+        p = pose
+        if p.ndim == 1:
+            p = p[np.newaxis, :]
+            single = True
+        pos = p[:, :3]
+        if format == 'wxyz':
+            quat = p[:, 3:7]
+        elif format == 'xyzw':
+            quat = p[:, 3:7][:, [3, 0, 1, 2]]  # to wxyz
+        else:
+            raise ValueError(f"Invalid quaternion format: {format}")
+
+        # Get current rotation
+        current_rot = R.from_quat(quat[..., [1, 2, 3, 0]])  # Convert wxyz to xyzw for scipy
+        
+        # Create rotation around local X axis
+        # To rotate around the local X axis:
+        # 1. The local X axis in world coordinates is the first column of the rotation matrix
+        # 2. Create a rotation around that world axis using axis-angle representation
+        # 3. Compose: R_new = R_around_world_axis * R_current
+        
+        current_matrix = current_rot.as_matrix()  # (N, 3, 3)
+        x_axis_world = current_matrix[:, :, 0]  # (N, 3) - local X axis direction in world frame
+        
+        # Create rotation around the world axis (which is the local X axis direction)
+        # Use axis-angle representation: rotation vector = angle * normalized_axis
+        # Normalize the axis (should already be unit, but normalize to be safe)
+        x_axis_normalized = x_axis_world / (np.linalg.norm(x_axis_world, axis=-1, keepdims=True) + 1e-10)
+        rotvec = angle * x_axis_normalized  # (N, 3)
+        
+        # Handle batch case: scipy Rotation.from_rotvec can handle (N, 3) arrays
+        x_axis_rot = R.from_rotvec(rotvec)
+        
+        # Compose rotations: rotate around world axis (local X direction), then apply current rotation
+        # This gives us rotation around the local X axis
+        new_rot = x_axis_rot * current_rot
+        
+        # Convert back to quaternion
+        new_quat = new_rot.as_quat()  # Returns xyzw, shape (N, 4)
+        
+        # Convert back to desired format
+        if format == 'wxyz':
+            new_quat = new_quat[..., [3, 0, 1, 2]]  # xyzw to wxyz
+        # else: already in xyzw format
+        
+        out = p.copy()
+        out[:, 3:7] = new_quat
         if single:
             out = out[0]
         return out
