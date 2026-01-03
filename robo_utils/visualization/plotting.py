@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 
 from .point_cloud_structures import make_gripper_visualization, get_cube_point_cloud
+from robo_utils.conversion_utils import pose_to_transformation
 
 # Type hint that works whether torch is available or not
 if torch is not None:
@@ -137,6 +138,33 @@ def plot_pcd(pcd, colors=None, seg=None, base_frame=False, extra_frames=None, fr
             geometries.append(frame)
 
     o3d.visualization.draw_geometries(geometries)
+
+def visualize_poses_in_pointcloud(pcd, poses, rgb=None, colors=None, frame_size=0.2, length=0.05, density=500, extra_frames=None):
+    """Visualize multiple gripper poses in a point cloud."""
+    if colors is None:
+        colors = [(1, 0, 0)] * len(poses)
+
+    combined_pcd = pcd.copy()
+    combined_rgb = rgb.copy() if rgb is not None else np.zeros_like(pcd)
+
+    for i, pose in enumerate(poses):
+        if isinstance(pose, torch.Tensor):
+            pose = pose.cpu().numpy()
+        gripper_transform = pose_to_transformation(pose, format='wxyz')
+        gripper_points, gripper_colors = make_gripper_visualization(
+            rotation=gripper_transform[:3, :3],
+            translation=gripper_transform[:3, 3],
+            length=length,
+            density=density,
+            color=colors[i % len(colors)]
+        )
+        combined_pcd = np.vstack([combined_pcd, gripper_points])
+        combined_rgb = np.vstack([combined_rgb, gripper_colors])
+
+    if combined_rgb is not None:
+        plot_pcd(combined_pcd, combined_rgb, base_frame=True, frame_size=frame_size, extra_frames=extra_frames)
+    else:
+        plot_pcd(combined_pcd, base_frame=True, frame_size=frame_size, extra_frames=extra_frames)
 
 def plot_pcd_with_highlighted_segment(pcd, seg, segment_id):
     """
