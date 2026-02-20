@@ -424,6 +424,37 @@ def rotate_pose_around_local_x(pose: TensorType, angle: float, format: str = 'wx
     else:
         raise ValueError("pose must be a numpy array or torch tensor")
 
+def downsample_point_cloud(pcd, num_points=4096):
+    """Downsample point cloud to specified number of points using Open3D."""
+    if isinstance(pcd, torch.Tensor):
+        pcd = pcd.cpu().numpy()
+    
+    # Create Open3D point cloud
+    o3d_pcd = o3d.geometry.PointCloud()
+    o3d_pcd.points = o3d.utility.Vector3dVector(pcd)
+    
+    # Downsample if needed
+    if len(pcd) > num_points:
+        o3d_pcd = o3d_pcd.farthest_point_down_sample(num_points)
+    elif len(pcd) < num_points:
+        # If we have fewer points, we can't upsample, so just return as is
+        # or pad with zeros (but that's not ideal)
+        pass
+    
+    # Convert back to numpy
+    downsampled_pcd = np.asarray(o3d_pcd.points)
+    
+    # Ensure exactly num_points (pad or truncate if needed)
+    if len(downsampled_pcd) < num_points:
+        # Pad with last point
+        padding = np.tile(downsampled_pcd[-1:], (num_points - len(downsampled_pcd), 1))
+        downsampled_pcd = np.vstack([downsampled_pcd, padding])
+    elif len(downsampled_pcd) > num_points:
+        # Truncate
+        downsampled_pcd = downsampled_pcd[:num_points]
+    
+    return downsampled_pcd
+
 def move_transformation_along_local_z(transformation_matrix: np.ndarray, distance: float):
     """Transforms the given transformation matrix along the local +Z axis by a given distance.
 
