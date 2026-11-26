@@ -16,7 +16,8 @@ keywords = ["robotics", "visualization", "point-cloud", "pytorch", "open3d"]
 
 dependencies = [
     "numpy>=1.26.4",
-    "scipy"
+    "scipy",
+    "pillow",
 ]
 
 [project.optional-dependencies]
